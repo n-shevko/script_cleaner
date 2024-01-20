@@ -1,0 +1,9 @@
+{
+  "chatgpt_api_key": "insert your token",
+  "percent_of_max_tokens_to_use_for_response": 50,
+  "prompt": "You will be provided with statements, and your task is to convert them to standard English.",
+  "temperature": 0,
+  "top_p": 1,
+  "frequency_penalty": 0,
+  "presence_penalty": 0
+}
