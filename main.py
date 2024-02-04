@@ -124,7 +124,6 @@ def get_text_only(path):
     tmp, ext = os.path.splitext(path)
     folder = os.path.dirname(tmp)
     filename = os.path.basename(tmp)
-    path = os.path.join(folder, filename + '_text_only' + ext)
     with open(path, 'r') as f:
         text = f.read()
     result = re.split(r'\[[\d:.]+\s*-->\s*[\d:.]+\]', text)
@@ -137,6 +136,7 @@ def get_text_only(path):
     now = datetime.now()
     formatted_datetime = now.strftime("%Y_%m_%d_%H_%M_%S")
     out_file = os.path.join(folder, filename + '_out_' + formatted_datetime + ext)
+    path = os.path.join(folder, filename + '_text_only' + ext)
     with open(path, 'w') as f:
         f.write(result)
     return result, out_file
