@@ -232,7 +232,7 @@ def send_to_chatgpt(txt_file_path, progressbar):
         if stop:
             break
     if stop:
-        msg = f"Not complete result in file {out_file}"
+        msg = f"Not complete result in file {out_file}\n{solution}"
     else:
         msg = f"Done. Result in file {out_file}"
 
