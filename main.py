@@ -2,6 +2,7 @@ import os
 import re
 import json
 import time
+import shlex
 
 from tkinter import *
 from tkinter import ttk
@@ -260,14 +261,14 @@ def run2(video, progressbar, use_existing_files):
         base_name, _ = os.path.splitext(file_name)
         wav_exists = os.path.exists(os.path.join(folder_path, base_name + '.wav'))
         if not wav_exists or not use_existing_files:
-            input_file = os.path.join('/videos', file_name)
-            out_file = os.path.join('/videos', base_name + '.wav')
+            input_file = os.path.join('/videos', shlex.quote(file_name))
+            out_file = os.path.join('/videos', shlex.quote(base_name + '.wav'))
             label = ttk.Label(frm, text="Extracting audio")
             label.grid(**layout['current_activity_message'])
             progressbar['value'] = 5
             active_containers.append('ffmpeg')
             response = docker(
-                [(folder_path, '/videos')],
+                [(shlex.quote(folder_path), '/videos')],
                 f"ffmpeg -i {input_file} -ar 16000 -ac 1 -c:a pcm_s16le -y {out_file}",
                 'ffmpeg'
             )
@@ -286,8 +287,8 @@ def run2(video, progressbar, use_existing_files):
             label.grid(**layout['current_activity_message'])
             active_containers.append('whisper')
             response = docker(
-                [(folder_path, '/videos'), (current_directory, '/models')],
-                f"./main -m /models/ggml-base.en.bin -t {os.cpu_count() - 1} -f /videos/{base_name}.wav > /videos/{base_name}.txt",
+                [(shlex.quote(folder_path), '/videos'), (shlex.quote(current_directory), '/models')],
+                f"./main -m /models/ggml-base.en.bin -t {os.cpu_count() - 1} -f /videos/{shlex.quote(base_name)}.wav > /videos/{shlex.quote(base_name)}.txt",
                 'whisper'
             )
             active_containers.remove('whisper')
