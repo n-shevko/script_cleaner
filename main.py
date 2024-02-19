@@ -97,7 +97,7 @@ layout = {
     },
     'notify_message': {
         'column': 0,
-        'row': 10
+        'row': 12
     },
     'button_under_notify_message': {
         'column': 0,
@@ -188,17 +188,56 @@ def clear(slug):
         slave.destroy()
 
 
+def estimate_cost(text, tokens_for_request, encoding, config):
+    sentences = text.split('.')
+    offset = 0
+    input_tokens = 0
+    out_tokens = 0
+    failed = False
+    while offset < len(sentences):
+        request = []
+        while offset < len(sentences):
+            sentence = sentences[offset]
+            tmp = '.'.join(request + [config['prompt'], sentence])
+            cnt = len(encoding.encode(tmp))
+            if cnt <= tokens_for_request:
+                request.append(sentence)
+                offset += 1
+            else:
+                break
+
+        if not request and offset < len(sentences):
+            notify("Can't create request.\n" + solution)
+            failed = True
+            break
+
+        request = '.'.join(request)
+        input_tokens += len(encoding.encode(request + config['prompt']))
+        out_tokens += 8192 - input_tokens - 100
+
+    if not failed:
+        cost = round(((input_tokens / 1000) * 0.03) + ((out_tokens / 1000) * 0.06), 1)
+        accepted = messagebox.askyesno("Cost estimation", f"Processing by ChatGPT will use \n{input_tokens} input tokens\n{out_tokens} output tokens\ntotal cost approximately {cost} $\n\nDou you want to continue?")
+    return (not failed) and accepted
+
+
+
 def send_to_chatgpt(txt_file_path, progressbar):
     text, out_file = get_text_only(txt_file_path)
-    config = load_config()
-    client = OpenAI(api_key=config['chatgpt_api_key'])
-    model = "gpt-4"
 
+    model = "gpt-4"
+    config = load_config()
     encoding = tiktoken.encoding_for_model(model)
     tokens_for_request_and_response = 8192
     p = config['percent_of_max_tokens_to_use_for_response'] / 100
     tokens_for_request = int(tokens_for_request_and_response * (1 - p))
 
+    feed = estimate_cost(text, tokens_for_request, encoding, config)
+    if not feed:
+        clear('done_message')
+        return
+
+    client = OpenAI(api_key=config['chatgpt_api_key'])
     offset = 0
     sentences = text.split('.')
     #sentences = sentences[0:2]
