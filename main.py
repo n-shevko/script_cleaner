@@ -196,6 +196,7 @@ def estimate_cost(text, tokens_for_request, encoding, config):
     failed = False
     while offset < len(sentences):
         request = []
+        tmp = ''
         while offset < len(sentences):
             sentence = sentences[offset]
             tmp = '.'.join(request + [config['prompt'], sentence])
@@ -207,13 +208,15 @@ def estimate_cost(text, tokens_for_request, encoding, config):
                 break
 
         if not request and offset < len(sentences):
-            notify("Can't create request.\n" + solution)
+            notify(f"Can't create request for the next sentence (tokens_for_request {tokens_for_request}):\n{tmp}\n\n" +
+                   "You can solve this problem by reducing 'Percent of LLM context to use for response'")
             failed = True
             break
 
         request = '.'.join(request)
-        input_tokens += len(encoding.encode(request + config['prompt']))
-        out_tokens += 8192 - input_tokens - 100
+        request_input_tokens = len(encoding.encode(request + config['prompt']))
+        input_tokens += request_input_tokens
+        out_tokens += (8192 - request_input_tokens - 100)
 
     if not failed:
         cost = round(((input_tokens / 1000) * 0.03) + ((out_tokens / 1000) * 0.06), 1)
@@ -249,6 +252,7 @@ def send_to_chatgpt(txt_file_path, progressbar):
     progressbar['value'] = 0
     while offset < len(sentences):
         request = []
+        tmp = ''
         while offset < len(sentences):
             sentence = sentences[offset]
             tmp = '.'.join(request + [config['prompt'], sentence])
@@ -260,7 +264,8 @@ def send_to_chatgpt(txt_file_path, progressbar):
                 break
 
         if not request and offset < len(sentences):
-            notify("Can't create request.\n" + solution)
+            notify(f"Can't create request for the next sentence (tokens_for_request {tokens_for_request}):\n{tmp}\n\n" +
+                   "You can solve this problem by reducing 'Percent of LLM context to use for response'")
             stop = True
             break
 
