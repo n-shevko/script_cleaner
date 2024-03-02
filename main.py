@@ -188,18 +188,17 @@ def clear(slug):
         slave.destroy()
 
 
-def estimate_cost(text, tokens_for_request, encoding, config):
-    sentences = text.split('.')
+def try_split(delimiter, text, tokens_for_request, encoding, config):
+    sentences = text.split(delimiter)
     offset = 0
     input_tokens = 0
     out_tokens = 0
-    failed = False
+    request_is_too_big = False
     while offset < len(sentences):
         request = []
-        tmp = ''
         while offset < len(sentences):
             sentence = sentences[offset]
-            tmp = '.'.join(request + [config['prompt'], sentence])
+            tmp = delimiter.join(request + [config['prompt'], sentence])
             cnt = len(encoding.encode(tmp))
             if cnt <= tokens_for_request:
                 request.append(sentence)
@@ -208,21 +207,35 @@ def estimate_cost(text, tokens_for_request, encoding, config):
                 break
 
         if not request and offset < len(sentences):
-            notify(f"Can't create request for the next sentence (tokens_for_request {tokens_for_request}):\n{tmp}\n\n" +
-                   "You can solve this problem by reducing 'Percent of LLM context to use for response'")
-            failed = True
+            request_is_too_big = True
             break
 
-        request = '.'.join(request)
+        request = delimiter.join(request)
         request_input_tokens = len(encoding.encode(request + config['prompt']))
         input_tokens += request_input_tokens
         out_tokens += (8192 - request_input_tokens - 100)
+    return request_is_too_big, input_tokens, out_tokens
 
-    if not failed:
+
+def estimate_cost(text, tokens_for_request, encoding, config):
+    point_attempt = try_split('.', text, tokens_for_request, encoding, config)
+    space_attempt = try_split(' ', text, tokens_for_request, encoding, config)
+    if (not point_attempt[0]) or (not space_attempt[0]):
+        if not point_attempt[0]:
+            choice = point_attempt
+            delimeter = '.'
+        elif not space_attempt[0]:
+            choice = space_attempt
+            delimeter = ' '
+        input_tokens = choice[1]
+        out_tokens = choice[2]
         cost = round(((input_tokens / 1000) * 0.03) + ((out_tokens / 1000) * 0.06), 1)
         accepted = messagebox.askyesno("Cost estimation", f"Processing by ChatGPT will use \n{input_tokens} input tokens\n{out_tokens} output tokens\ntotal cost approximately {cost} $\n\nDou you want to continue?")
-    return (not failed) and accepted
-
+        return accepted, delimeter
+    else:
+        notify(f"Can't create request for an sentence. The sentence is too big.\n" +
+               "You may solve this problem by reducing 'Percent of LLM context to use for response'. If it doesn't help then mail to nicksheuko@gmail.com")
+        return False, None
 
 
 def send_to_chatgpt(txt_file_path, progressbar):
@@ -235,14 +248,14 @@ def send_to_chatgpt(txt_file_path, progressbar):
     p = config['percent_of_max_tokens_to_use_for_response'] / 100
     tokens_for_request = int(tokens_for_request_and_response * (1 - p))
 
-    feed = estimate_cost(text, tokens_for_request, encoding, config)
+    feed, delimeter = estimate_cost(text, tokens_for_request, encoding, config)
     if not feed:
         clear('done_message')
         return
 
     client = OpenAI(api_key=config['chatgpt_api_key'])
     offset = 0
-    sentences = text.split('.')
+    sentences = text.split(delimeter)
     #sentences = sentences[0:2]
     clear('done_message')
     ttk.Label(frm, text=f"You can observe progress in file {out_file}").grid(
@@ -252,10 +265,9 @@ def send_to_chatgpt(txt_file_path, progressbar):
     progressbar['value'] = 0
     while offset < len(sentences):
         request = []
-        tmp = ''
         while offset < len(sentences):
             sentence = sentences[offset]
-            tmp = '.'.join(request + [config['prompt'], sentence])
+            tmp = delimeter.join(request + [config['prompt'], sentence])
             cnt = len(encoding.encode(tmp))
             if cnt <= tokens_for_request:
                 request.append(sentence)
@@ -263,13 +275,7 @@ def send_to_chatgpt(txt_file_path, progressbar):
             else:
                 break
 
-        if not request and offset < len(sentences):
-            notify(f"Can't create request for the next sentence (tokens_for_request {tokens_for_request}):\n{tmp}\n\n" +
-                   "You can solve this problem by reducing 'Percent of LLM context to use for response'")
-            stop = True
-            break
-
-        request = '.'.join(request)
+        request = delimeter.join(request)
         tokens_for_response = tokens_for_request_and_response - len(encoding.encode(request + config['prompt'])) - 100
         stop = call_chatgpt(config, model, client, config['prompt'], request, out_file, tokens_for_response)
         progressbar['value'] = ((offset + 1) / len(sentences)) * 100
