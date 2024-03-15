@@ -77,7 +77,8 @@ layout = {
     'percent_of_max_tokens_to_use_for_response': {
         'column': 0,
         'row': 5,
-        'sticky': "e"
+        'sticky': "w",
+        'padx': (400, 0)
     },
     'current_activity_message': {
         'column': 0,
